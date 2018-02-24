@@ -83,15 +83,15 @@ echo Intalling the optional Fail2ban and UFW selections
     cd
     sudo apt-get install -y fail2ban
     sudo service fail2ban restart 
-	sleep 2s
-	cd && cd ../..
-	awk '{ printf "# "; print; }' /etc/fail2ban/jail.conf | sudo tee /etc/fail2ban/jail.local
+    sleep 2s
+    cd && cd ../..
+    awk '{ printf "# "; print; }' /etc/fail2ban/jail.conf | sudo tee /etc/fail2ban/jail.local
     cd etc/fail2ban/
     sudo sed -i 's/bantime  = 600/bantime  = 10000/1' jail.conf
     sudo sed -i 's/findtime  = 600/findtime  = 10000 /1' jail.conf
-	output '## Fail2ban installed and configured. More than 5 failed login attempts in 2.75 hours'
-	output '## will BLACKLIST your IP address for 2.75 hours. Please do not guess your password'
-	sleep 5s
+    output '## Fail2ban installed and configured. More than 5 failed login attempts in 2.75 hours'
+    output '## will BLACKLIST your IP address for 2.75 hours. Please do not guess your password'
+    sleep 5s
     fi
     if [[ ("$UFW" == "y" || "$UFW" == "Y" || "$UFW" == "") ]]; then
     sudo apt-get install ufw
@@ -100,11 +100,15 @@ echo Intalling the optional Fail2ban and UFW selections
     sudo ufw allow ssh
     sudo ufw allow 26285/tcp
     sudo ufw --force enable
-	output '## Note: /etc/ssh/sshd_config was modified such that'
-	output '####    ROOT LOGIN IS NOW DISABLED!!!   ###'
-	output '## Edit /etc/ssh/sshd_config to change this.'
-	sleep 5s
-	echo ##
+    #change ssh port and disable root login
+    cd etc/ssh/
+    sed -i 's/PermitRootLogin yes/PermitRootLogin no/1' sshd_config
+    cd
+    output '## Note: /etc/ssh/sshd_config was modified such that'
+    output '####    ROOT LOGIN IS NOW DISABLED!!!   ###'
+    output '## Edit /etc/ssh/sshd_config to change this.'
+    sleep 5s
+    echo ##
     fi
 	
 #dinerocore download and install
