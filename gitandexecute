@@ -1,0 +1,241 @@
+#!/bin/bash
+#Dinero Masternode Install
+#WGDM - DIN - cobrakenji
+# DIN - DQ3Q59RHAD5T1reZGLXS5ernnZrNW3EJZ1
+# BTC - 1HgPZvFRKuvsuLXwRtrLsJsws7ivZQScJt
+clear
+
+output() {
+    printf "\E[1;31;40m"
+    echo $1
+    printf "\E[0m"
+}
+
+clear
+echo Donations welcome
+echo 'DIN - DQ3Q59RHAD5T1reZGLXS5ernnZrNW3EJZ1'
+echo 'BTC - 1HgPZvFRKuvsuLXwRtrLsJsws7ivZQScJt'
+output " :heart: - CobraKenji"
+sleep 3s
+echo Thank you.
+output ""
+output " Install and configure Dinero masternode"
+output "##"
+cd && sleep 6s
+whoami=$(whoami)
+
+#random passwords
+    password=`cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 24 | head -n 1`
+    password2=`cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1`
+
+response="n"
+while [ $response = "n" ]
+do
+        echo "Do you have the following bits of information ready?"
+		echo ""
+		echo "VPS external IP address?"
+		echo "GENKEY and OUTPUT strings from the wallet?"
+		echo ##
+        # yes no message below
+        echo -n "Continue? [y/n]"
+        read -n1 Input
+        echo # completes
+        case $Input in
+                [Yy]):
+                response="y"
+                ;;
+        esac
+done
+output "###############################"
+echo '##'
+echo ##
+read -e -p "Install Fail2ban? [Y/n] : " instfail2ban
+clear
+output "###############################"
+echo '##'
+echo ##
+read -e -p "Install UFW, configure ports and disable root login? [Y/n] : " UFW
+clear
+output "###############################"
+echo '##'
+echo ##
+output 'At the red-purple GRUB prompt, I suggest TAB then ENTER.'
+read -e -p "Press enter to continue... " zip
+clear
+output "###############################"
+echo '##'
+echo ##
+output 'Please enter your masternode GENKEY below.'
+read -e -p "GENKEY : " key
+clear
+output "###############################"
+echo '##'
+echo ##
+output 'Please enter your VPS IP address below.'
+read -e -p "IP Address: " ip
+clear
+output "###############################"
+echo ##
+echo ##
+
+echo Intalling the optional Fail2ban and UFW selections
+    if [[ ("$instfail2ban" == "y" || "$instfail2ban" == "Y" || "$instfail2ban" == "") ]]; then
+    cd
+    sudo apt-get install -y fail2ban
+    sudo service fail2ban restart 
+	sleep 2s
+	cd && cd ../..
+	awk '{ printf "# "; print; }' /etc/fail2ban/jail.conf | sudo tee /etc/fail2ban/jail.local
+    cd etc/fail2ban/
+    sudo sed -i 's/bantime  = 600/bantime  = 10000/1' jail.conf
+    sudo sed -i 's/findtime  = 600/findtime  = 10000 /1' jail.conf
+	output '## Fail2ban installed and configured. More than 5 failed login attempts in 2.75 hours'
+	output '## will BLACKLIST your IP address for 2.75 hours. Please do not guess your password'
+	sleep 5s
+    fi
+    if [[ ("$UFW" == "y" || "$UFW" == "Y" || "$UFW" == "") ]]; then
+    sudo apt-get install ufw
+    sudo ufw default deny incoming
+    sudo ufw default allow outgoing
+    sudo ufw allow ssh
+    sudo ufw allow 26285/tcp
+    sudo ufw --force enable
+	output '## Note: /etc/ssh/sshd_config was modified such that'
+	output '####    ROOT LOGIN IS NOW DISABLED!!!   ###'
+	output '## Edit /etc/ssh/sshd_config to change this.'
+	sleep 5s
+	echo ##
+    fi
+	
+#dinerocore download and install
+cd
+mkdir .dinerocore
+output '## Time to download dinerocore'
+sleep 2s
+wget https://github.com/dinerocoin/dinero/releases/download/v1.0.0.7/dinerocore-1.0.0.7-linux64.tar.gz
+tar -xzvf "dinerocore-1.0.0.7-linux64.tar.gz"
+rm -rf "dinerocore-1.0.0.7-linux64.tar.gz"
+cd dinerocore-1.0.0/bin
+output 'starting dinero daemon for the first time...'
+./dinerod -daemon
+output 'The Dinero daemon is getting ready to stop... continuing in 30 seconds.'
+sleep 30s
+echo 'Stopping Dinero daemon... continuing in 15 seconds.'
+./dinero-cli stop
+sleep 15s
+output 'The Dinero daemon is restarting.'
+./dinerod -daemon
+
+cd ~/.dinerocore
+
+cat > dinero.conf << EOF
+rpcuser=$password
+rpcpassword=$password2
+rpcallowip=127.0.0.1
+listen=1
+server=1
+daemon=1
+maxconnections=256
+masternode=1
+masternodeprivkey=$key
+externalip=$ip
+EOF
+
+#Install Sentinel
+output 'Installing Sentinel' && sleep 2s
+cd ~/.dinerocore
+sudo apt-get install -y git python-virtualenv
+git clone https://github.com/dinerocoin/sentinel.git
+cd sentinel
+export LC_ALL=C
+sudo apt-get install -y virtualenv
+virtualenv venv
+venv/bin/pip install -r requirements.txt
+
+#verify proper permissions
+cd && cd ..
+sudo chown -R $whoami:$whoami $whoami
+sudo chmod -R 0755 $whoami
+
+#make and install cronjob for Sentinel and dinerod my way
+output 'cron stuff happening...' && sleep 2s
+
+crontab cron.job
+    (crontab -l 2>/dev/null; echo '@reboot sleep 30 && cd /'$whoami'/dinerocore-1.0.0/bin/dinerod -daemon -shrinkdebugfile') | crontab
+    (crontab -l 2>/dev/null; echo '* * * * * cd /'$whoami'/.dinerocore/sentinel && ./venv/bin/python bin/sentinel.py >/$') | crontab
+
+output '################################'
+output 'starting your masternode... '
+output 'please follow instructions below'
+echo ##
+echo ##
+echo ' Go to your Win/Mac wallet and modify masternode.conf'
+echo ' with the file generated in your wgdm folder.'
+echo ' then restart your wallet. Next, from the wallet menu'
+echo ' Tools - Debug console  menu option, please enter your'
+echo ' masternode alias by replacing mn1 in the example '
+echo ' below with your Masternode alias name.'
+echo ##
+echo ##
+output 'Enter the below command in your wallet debug console.'
+echo ' Replace mn1 with your alias if different!'
+output '###########################'
+echo 'masternode start-alias mn1'
+output '###########################'
+echo ''
+echo 'We will wait 2 minutes for the sync. Then you can press Enter to continue.'
+sleep 120
+#echo A permissions reset script was created. You can enter:
+#output 'sudo bash permissions.clean'
+#echo to reset the permissions and ownership of your entire home directory
+echo '##'
+echo ##
+echo ##
+output 'Congrats !!! '
+echo 'your Dinero Masternode has been setup' 
+echo ##
+echo 'If successfull, in 45 seconds you should receive the output of:'
+output "~/dinerocore-1.0.0/bin/dinero-cli getinfo"
+echo '##'
+echo ##
+echo ##
+echo ##
+output 'Donations always welcome...'
+echo DIN - DQ3Q59RHAD5T1reZGLXS5ernnZrNW3EJZ1
+echo BTC - 1HgPZvFRKuvsuLXwRtrLsJsws7ivZQScJt
+echo XMR - 45NJYkoHqzwCpehbb1AuBFUEBjpRq26e6X5UoJfwNpgaREUWb3kVpcJ3QPvTiY52uiJeYyrtkPbmbBCqBUBHswjh38MBPuP
+echo ##
+output ':heart: CobraKenji'
+echo '##'
+echo ##
+echo 'Please wait an additional 120 seconds while the daemon syncs further... '
+read -p "Then press ENTER to exit and display daemon info." -n1 -s
+sleep 45s
+cd && dinerocore-1.0.0/bin/dinero-cli getinfo
+
+echo ##
+#small diagnostic file for troubleshooting
+cd
+cat > dinero.cmds << EOF
+~/dinerocore-1.0.0/bin/dinero-cli getinfo
+~/.dinerocore/sentinel/venv/bin/python bin/sentinel.py
+~/dinerocore-1.0.0/bin/dinero-cli mnsync status
+~/dinerocore-1.0.0/bin/dinero-cli masternode status
+~/dinerocore-1.0.0/bin/dinero-cli start
+~/dinerocore-1.0.0/bin/dinero-cli stop
+
+And to edit your dinero.conf file:
+sudo nano ~/.dinerocore/dinero.conf
+
+EOF
+echo ##
+output 'To see some useful Sentinel and '
+output 'Dinero daemon diagnostic commands.'
+output ' Please type:'
+output '##################'
+echo '~/tail dinero.cmds '
+output '##################'
+
+echo ##
+echo ##
+echo Thank you - CobraKenji
