@@ -22,7 +22,8 @@ output ""
 output " Install and configure Dinero masternode"
 output "##"
 cd && sleep 6s
-whoami=$(whoami)
+echo $USER
+currentuser="$USER"
 
 #random passwords
     password=`cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 24 | head -n 1`
@@ -155,18 +156,19 @@ export LC_ALL=C
 sudo apt-get install -y virtualenv
 virtualenv venv
 venv/bin/pip install -r requirements.txt
+output 'Sentinel installed.'
 
 #verify proper permissions
-cd && cd ..
-sudo chown -R $whoami:$whoami $whoami
-sudo chmod -R 0755 $whoami
+cd
+sudo chown -R $currentuser:$currentuser /home/$currentuser
+sudo chmod -R 0755 /home/$currentuser
 
 #make and install cronjob for Sentinel and dinerod my way
 output 'cron stuff happening...' && sleep 2s
 
 crontab cron.job
-    (crontab -l 2>/dev/null; echo '@reboot sleep 30 && cd /'$whoami'/dinerocore-1.0.0/bin/dinerod -daemon -shrinkdebugfile') | crontab
-    (crontab -l 2>/dev/null; echo '* * * * * cd /'$whoami'/.dinerocore/sentinel && ./venv/bin/python bin/sentinel.py >/$') | crontab
+    (crontab -l 2>/dev/null; echo '@reboot sleep 30 && cd /'$currentuser'/dinerocore-1.0.0/bin/dinerod -daemon -shrinkdebugfile') | crontab
+    (crontab -l 2>/dev/null; echo '* * * * * cd /'$currentuser'/.dinerocore/sentinel && ./venv/bin/python bin/sentinel.py >/$') | crontab
 
 output '################################'
 output 'starting your masternode... '
@@ -187,11 +189,13 @@ output '###########################'
 echo 'masternode start-alias mn1'
 output '###########################'
 echo ''
+echo A permissions reset script was created. You can enter:
+output 'sudo bash permissions.clean'
+echo to reset the permissions and ownership of your entire home directory
+echo ##
+echo ##
 echo 'We will wait 2 minutes for the sync. Then you can press Enter to continue.'
-sleep 120
-#echo A permissions reset script was created. You can enter:
-#output 'sudo bash permissions.clean'
-#echo to reset the permissions and ownership of your entire home directory
+sleep 120s
 echo '##'
 echo ##
 echo ##
@@ -207,22 +211,22 @@ echo ##
 output 'Donations always welcome...'
 echo DIN - DQ3Q59RHAD5T1reZGLXS5ernnZrNW3EJZ1
 echo BTC - 1HgPZvFRKuvsuLXwRtrLsJsws7ivZQScJt
-echo XMR - 45NJYkoHqzwCpehbb1AuBFUEBjpRq26e6X5UoJfwNpgaREUWb3kVpcJ3QPvTiY52uiJeYyrtkPbmbBCqBUBHswjh38MBPuP
+#echo XMR - 45NJYkoHqzwCpehbb1AuBFUEBjpRq26e6X5UoJfwNpgaREUWb3kVpcJ3QPvTiY52uiJeYyrtkPbmbBCqBUBHswjh38MBPuP
 echo ##
 output ':heart: CobraKenji'
 echo '##'
 echo ##
-echo 'Please wait an additional 120 seconds while the daemon syncs further... '
+echo 'Please wait 45 seconds while the daemon syncs further... '
 read -p "Then press ENTER to exit and display daemon info." -n1 -s
 sleep 45s
 cd && dinerocore-1.0.0/bin/dinero-cli getinfo
 
 echo ##
 #small diagnostic file for troubleshooting
-cd
+cd /home/$currentuser/
 cat > dinero.cmds << EOF
 ~/dinerocore-1.0.0/bin/dinero-cli getinfo
-~/.dinerocore/sentinel/venv/bin/python bin/sentinel.py
+cd ~/.dinerocore/sentinel && venv/bin/python bin/sentinel.py && cd
 ~/dinerocore-1.0.0/bin/dinero-cli mnsync status
 ~/dinerocore-1.0.0/bin/dinero-cli masternode status
 ~/dinerocore-1.0.0/bin/dinero-cli start
@@ -237,7 +241,7 @@ output 'To see some useful Sentinel and '
 output 'Dinero daemon diagnostic commands.'
 output ' Please type:'
 output '##################'
-echo '~/tail dinero.cmds '
+echo 'tail dinero.cmds'
 output '##################'
 
 echo ##
