@@ -100,9 +100,10 @@ echo Intalling the optional Fail2ban and UFW selections
     sudo ufw default allow outgoing
     sudo ufw allow ssh
     sudo ufw allow 26285/tcp
+    sudo ufw allow 9998
     sudo ufw --force enable
     #change ssh port and disable root login
-    cd etc/ssh/
+    cd && cd ../.. && cd /etc/ssh/
     sed -i 's/PermitRootLogin yes/PermitRootLogin no/1' sshd_config
     cd
     output '## Note: /etc/ssh/sshd_config was modified such that'
@@ -145,6 +146,7 @@ masternode=1
 masternodeprivkey=$key
 externalip=$ip
 EOF
+ln -sf /home/$currentuser/.dinerocore/dinero.conf /root/.dinerocore/dinero.conf
 
 #Install Sentinel
 output 'Installing Sentinel' && sleep 2s
@@ -158,10 +160,18 @@ virtualenv venv
 venv/bin/pip install -r requirements.txt
 output 'Sentinel installed.'
 
-#verify proper permissions
-cd
+#verify proper permissions and create permissions cleanup script
+cd /home/$currentuser
 sudo chown -R $currentuser:$currentuser /home/$currentuser
 sudo chmod -R 0755 /home/$currentuser
+
+cat > permissions.clean << EOF
+#!/bin/bash
+currentuser="$USER"
+cd /home/$currentuser
+sudo chown -R $currentuser:$currentuser /home/$currentuser
+sudo chmod -R 0755 /home/$currentuser
+EOF
 
 #make and install cronjob for Sentinel and dinerod my way
 output 'cron stuff happening...' && sleep 2s
@@ -189,10 +199,18 @@ output '###########################'
 echo 'masternode start-alias mn1'
 output '###########################'
 echo ''
-echo A permissions reset script was created. You can enter:
-output 'sudo bash permissions.clean'
-echo to reset the permissions and ownership of your entire home directory
-echo ##
+
+#echo A permissions reset script was created. You can enter:
+#output 'sudo bash ~/cleanperms'
+#echo to reset the permissions and ownership of your entire home directory
+#echo ##
+
+#cd /home/$currentuser/
+#cat > cleanperms << EOF
+#sudo chown -R $currentuser:$currentuser /home/$currentuser
+#sudo chmod -R 0755 /home/$currentuser
+#EOF
+
 echo ##
 echo 'We will wait 2 minutes for the sync. Then you can press Enter to continue.'
 sleep 120s
@@ -219,17 +237,21 @@ echo ##
 echo 'Please wait 45 seconds while the daemon syncs further... '
 read -p "Then press ENTER to exit and display daemon info." -n1 -s
 sleep 45s
-cd && dinerocore-1.0.0/bin/dinero-cli getinfo
+echo A reboot may be required.
+cd && /dinerocore-1.0.0/bin/dinero-cli getinfo
 
 echo ##
 #small diagnostic file for troubleshooting
 cd /home/$currentuser/
 cat > dinero.cmds << EOF
+
+USEFULL DINERO MASTERNODE COMMANDS
+
 ~/dinerocore-1.0.0/bin/dinero-cli getinfo
 cd ~/.dinerocore/sentinel && venv/bin/python bin/sentinel.py && cd
 ~/dinerocore-1.0.0/bin/dinero-cli mnsync status
 ~/dinerocore-1.0.0/bin/dinero-cli masternode status
-~/dinerocore-1.0.0/bin/dinero-cli start
+~/dinerocore-1.0.0/bin/dinerod -daemon
 ~/dinerocore-1.0.0/bin/dinero-cli stop
 
 And to edit your dinero.conf file:
@@ -247,3 +269,6 @@ output '##################'
 echo ##
 echo ##
 echo Thank you - CobraKenji
+echo ##
+echo ## 
+output 'Your VPS will not reboot. Please be sure to start your masternode at your local wallet.'
