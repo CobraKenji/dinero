@@ -271,4 +271,7 @@ echo ##
 echo Thank you - CobraKenji
 echo ##
 echo ## 
-output 'Your VPS will not reboot. Please be sure to start your masternode at your local wallet.'
+output 'For completeness, you should reboot your VPS. To do this, type:'
+echo 'sudo reboot'
+echo ##
+output 'Again, please be sure to start your masternode on your local wallet.'
