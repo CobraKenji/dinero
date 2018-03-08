@@ -114,14 +114,16 @@ echo Intalling the optional Fail2ban and UFW selections
     fi
 	
 #dinerocore download and install
+#stop old daemon if running
 cd
+dinerocore-1.0.0/bin/dinero-cli stop
 mkdir .dinerocore
 output '## Time to download dinerocore'
 sleep 2s
-wget https://github.com/dinerocoin/dinero/releases/download/v1.0.0.7/dinerocore-1.0.0.7-linux64.tar.gz
-tar -xzvf "dinerocore-1.0.0.7-linux64.tar.gz"
-rm -rf "dinerocore-1.0.0.7-linux64.tar.gz"
-cd dinerocore-1.0.0/bin
+wget https://github.com/dinerocoin/dinero/releases/download/v1.0.1.0/dinerocore-1.0.1.0-linux64.tar.gz
+tar -xzvf "dinerocore-1.0.1.0-linux64.tar.gz"
+rm -rf "dinerocore-1.0.1.0-linux64.tar.gz"
+cd dinerocore-1.0.1/bin
 output 'starting dinero daemon for the first time...'
 ./dinerod -daemon
 output 'The Dinero daemon is getting ready to stop... continuing in 30 seconds.'
@@ -176,9 +178,13 @@ EOF
 #make and install cronjob for Sentinel and dinerod my way
 output 'cron stuff happening...' && sleep 2s
 
-crontab cron.job
-    (crontab -l 2>/dev/null; echo '@reboot sleep 30 && cd /'$currentuser'/dinerocore-1.0.0/bin/dinerod -daemon -shrinkdebugfile') | crontab
-    (crontab -l 2>/dev/null; echo '* * * * * cd /'$currentuser'/.dinerocore/sentinel && ./venv/bin/python bin/sentinel.py >/$') | crontab
+cat > newcron << EOF
+@reboot sleep 30 && cd /$currentuser/dinerocore-1.0.1/bin/dinerod -daemon -shrinkdebugfile
+* * * * * cd /$currentuser/.dinerocore/sentinel && ./venv/bin/python bin/sentinel.py >/$
+EOF
+crontab newcron
+rm newcron
+crontab -l
 
 output '################################'
 output 'starting your masternode... '
@@ -221,7 +227,7 @@ output 'Congrats !!! '
 echo 'your Dinero Masternode has been setup' 
 echo ##
 echo 'If successfull, in 45 seconds you should receive the output of:'
-output "~/dinerocore-1.0.0/bin/dinero-cli getinfo"
+output "~/dinerocore-1.0.1/bin/dinero-cli getinfo"
 echo '##'
 echo ##
 echo ##
@@ -238,7 +244,7 @@ echo 'Please wait 45 seconds while the daemon syncs further... '
 read -p "Then press ENTER to exit and display daemon info." -n1 -s
 sleep 45s
 echo A reboot may be required.
-cd && /dinerocore-1.0.0/bin/dinero-cli getinfo
+cd && /dinerocore-1.0.1/bin/dinero-cli getinfo
 
 echo ##
 #small diagnostic file for troubleshooting
@@ -247,12 +253,12 @@ cat > dinero.cmds << EOF
 
 USEFULL DINERO MASTERNODE COMMANDS
 
-~/dinerocore-1.0.0/bin/dinero-cli getinfo
+~/dinerocore-1.0.1/bin/dinero-cli getinfo
 cd ~/.dinerocore/sentinel && venv/bin/python bin/sentinel.py && cd
-~/dinerocore-1.0.0/bin/dinero-cli mnsync status
-~/dinerocore-1.0.0/bin/dinero-cli masternode status
-~/dinerocore-1.0.0/bin/dinerod -daemon
-~/dinerocore-1.0.0/bin/dinero-cli stop
+~/dinerocore-1.0.1/bin/dinero-cli mnsync status
+~/dinerocore-1.0.1/bin/dinero-cli masternode status
+~/dinerocore-1.0.1/bin/dinerod -daemon
+~/dinerocore-1.0.1/bin/dinero-cli stop
 
 And to edit your dinero.conf file:
 sudo nano ~/.dinerocore/dinero.conf
