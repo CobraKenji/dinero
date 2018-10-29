@@ -1,0 +1,135 @@
+---
+- hosts: localhost
+  remote_user: root
+  tasks:
+
+  - name: update packages
+    shell: apt-get update -y
+
+  - name: upgrade
+    shell: apt-get upgrade -y
+
+  - name: dist-upgrade
+    shell: apt-get dist-upgrade -y
+
+  - name: Install latest version of "{{ item }}"
+    apt:
+      name: "{{ item }}"
+      state: latest
+    with_items:
+      - nano
+      - git
+      - htop
+      - build-essential
+      - libtool
+      - autotools-dev
+      - automake
+      - pkg-config
+      - libssl-dev
+      - libevent-dev
+      - software-properties-common
+
+  - name: clone repo
+    get_url: 
+      url: https://github.com/dinerocoin/dinero/releases/download/v1.0.1.0/dinerocore-1.0.1.0-linux64.tar.gz
+      dest: /root
+
+  - name: unarchive file 
+    unarchive:
+      src: /root/dinerocore-1.0.1.0-linux64.tar.gz
+      dest: /dinerocore-1.0.1
+      
+  - name: start daemon
+    command: ./dinerocore-1.0.1/dinerod -daemon
+      
+  - name: sleep for 100 seconds and wait for wallet to load
+    wait_for: timeout=100
+    delegate_to: localhost
+      
+#  - name: Generate Masternode Key
+#    command: ./dinerocore-1.0.1/dinero-cli masternode genkey 
+#    register: masternodekey
+
+  - name: Stop daemon
+    command: ./dinerocore-1.0.1/dinero-cli stop  
+
+  - name: configure dinerocore
+    blockinfile:
+      dest: /root/.dinero/dinero.conf
+      block: |
+        masternode=1
+        rpcuser=KsdFJ76DDh55Dp3etYo9
+        rpcpassword=kjg23HG4jhAi9Lntg3OlbVtRe9k2M36Npq
+        rpcallowip=127.0.0.1
+        listen=1
+        server=1
+        daemon=1
+        maxconnections=256
+        masternodeprivkey={{masternodekey.stdout}}
+
+  - name: nuke some files
+    file:
+      path: "{{ item }}"
+      state: absent
+    with_items:
+      - ~/.dinerocore/mncache.dat
+      - ~/.dinerocore/mnpayments.dat
+      
+#  - name: reindex daemon
+#    command: ./dinerocore-1.0.1/dinerod -daemon -reindex
+
+  - name: sleep 1000 seconds
+    wait_for: timeout=1000
+    delegate_to: localhost
+
+  - name: sleep 300 seconds
+    wait_for: timeout=300
+    delegate_to: localhost
+
+  - name: update
+    shell: apt-get update
+
+  - name: get python venv
+    shell: apt-get install python-virtualenv -y
+
+  - name: clone sentinel
+    command: git clone https://github.com/dinerocoin/sentinel.git
+    args:
+      chdir: ~/.dinerocore/
+      
+  - name: create v.environment
+    command: virtualenv venv
+    args:
+      chdir: ~/.dinerocore/sentinel
+      
+  - name: Sentinel Install -venv install -r requirements.txt
+    command: venv/bin/pip install -r requirements.txt
+    args:
+      chdir:  ~/.dinerocore/sentinel
+
+  - name: Sentinel Install - start sentinel
+    command: venv/bin/python bin/sentinel.py
+    args:
+      chdir:  ~/.dinerocore/sentinel
+
+  - name: sleep 100 seconds for wallet sync
+    wait_for: timeout=100
+    delegate_to: localhost
+
+  - name: add sentinel cronjob
+    lineinfile:
+      dest: /etc/crontab
+      line: '* * * * * cd ~/.dinerocore/sentinel && ./venv/bin/python bin/sentinel.py 2>&1 >> sentinel-cron.log'
+    
+  - name: check masternode debug
+    command: ./dinerocore-1.0.1/dinero-cli masternode debug
+
+  - name: masternode status
+    command: ./dinerocore-1.0.1/dinero-cli masternode status
+    register: mn_status
+
+  - debug:
+      var: mn_status
+
+  - debug:
+      var: masternodekey
